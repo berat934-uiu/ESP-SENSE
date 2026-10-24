@@ -1,4 +1,5 @@
 /*
+ * Wifi olmadan da çalışır
  * ============================================================================
  *  ESP32 ÇEVRE İSTASYONU  -  v2.4 (kararlılık düzeltmeleri)
  *  Sensörler : DHT11 (sıcaklık/nem), Mikrofon (analog), LDR (Voltaj Bölücü)
@@ -27,18 +28,18 @@
 // ============================== YAPILANDIRMA ================================
 namespace Config {
   // Pinler
-  constexpr uint8_t PIN_DHT = 23;
+  constexpr uint8_t PIN_DHT = 23;   // DHT11 
   constexpr uint8_t PIN_MIC = 34;   // ADC1 - Mikrofon AO
   constexpr uint8_t PIN_LDR = 35;   // ADC1 - LDR Sinyal (Voltaj Bölücü)
 
   // Wi-Fi
-  const char* WIFI_SSID = "bip";
-  const char* WIFI_PASS = "12345678";
-  const char* HOSTNAME  = "cevre";
+  const char* WIFI_SSID = "bip";      //Wifi ağınızın adı
+  const char* WIFI_PASS = "123456788"; //Wifi ağınızın şifresi
+  const char* HOSTNAME  = "cevre";     
   constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
   constexpr uint32_t WIFI_RETRY_INTERVAL_MS  = 15000;
-  const char* AP_SSID = "ESP32-Cevre";
-  const char* AP_PASS = "12345678";
+  const char* AP_SSID = "ESP32-Cevre";   //Esp nin kendi ağı (isterseniz değiştirin adı)
+  const char* AP_PASS = "12345678";      //Esp nin şifresi
 
   // Zamanlama
   constexpr uint32_t DHT_PERIOD_MS     = 2000;
