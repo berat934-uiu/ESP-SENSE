@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" width="1280" height="960" font-family="'Segoe UI', Arial, sans-serif">
+<defs>
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="0.8" fill="#d6dbe3"/></pattern>
+  <g id="gnd" stroke="#880000" stroke-width="2" fill="none" stroke-linecap="round">
+    <line x1="0" y1="0" x2="0" y2="6"/><line x1="-11" y1="6" x2="11" y2="6"/>
+    <line x1="-7" y1="11" x2="7" y2="11"/><line x1="-3" y1="16" x2="3" y2="16"/>
+  </g>
+  <g id="pwr" stroke="#880000" stroke-width="2" fill="none" stroke-linecap="round">
+    <line x1="0" y1="0" x2="0" y2="-8"/><line x1="-9" y1="-8" x2="9" y2="-8"/>
+  </g>
+</defs>
+
+<style>
+  .w{stroke:#008800;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .bus{stroke:#008800;stroke-width:3;fill:none;stroke-linecap:round}
+  .b{stroke:#880000;stroke-width:2;fill:#FFFFCC}
+  .p{stroke:#880000;stroke-width:2;fill:none}
+  .nc{stroke:#b08a8a;stroke-width:1.6;fill:none}
+  .j{fill:#008800}
+  .ref{fill:#000088;font-size:13px;font-weight:700}
+  .val{fill:#000088;font-size:12px}
+  .pin{fill:#880000;font-size:11px;font-weight:600}
+  .pu{fill:#000088;font-size:11px;font-weight:800}
+  .pn{fill:#a58a8a;font-size:11px;font-weight:500}
+  .net{fill:#880000;font-size:12px;font-weight:700}
+  .cell{fill:#222;font-size:12px}
+  .hd{fill:#fff;font-size:12px;font-weight:700}
+</style>
+
+<rect width="1280" height="960" fill="#ffffff"/>
+<rect width="1280" height="960" fill="url(#grid)"/>
+<rect x="10" y="10" width="1260" height="940" fill="none" stroke="#880000" stroke-width="2"/>
+<text x="40" y="48" font-size="24" font-weight="800" fill="#1f2a44">ESP32 Çevre ve Gürültü İzleme İstasyonu — Devre Şeması</text>
+<path class="bus" d="M330,100 H1220"/>
+<use href="#pwr" x="620" y="100"/><text class="net" x="620" y="84" text-anchor="middle">3V3 HATTI</text>
+<path class="bus" d="M310,660 H1180"/>
+<use href="#gnd" x="700" y="660"/><text class="net" x="700" y="694" text-anchor="middle">GND HATTI</text>
+<rect class="b" x="540" y="160" width="280" height="450" rx="4"/>
+<text class="ref" x="540" y="152">U1</text>
+<text x="680" y="372" text-anchor="middle" font-size="18" font-weight="800" fill="#880000">ESP32</text>
+<text x="680" y="392" text-anchor="middle" font-size="12" fill="#880000">DevKit · 30 pin</text>
+<text x="680" y="408" text-anchor="middle" font-size="11" fill="#880000">USB-C · CP2102</text>
+<line class="p" x1="500" y1="190" x2="540" y2="190"/>
+<text class="pn" x="548" y="194">EN</text>
+<line class="nc" x1="493" y1="187" x2="499" y2="193"/><line class="nc" x1="493" y1="193" x2="499" y2="187"/>
+<line class="p" x1="500" y1="218" x2="540" y2="218"/>
+<text class="pn" x="548" y="222">VP</text>
+<line class="nc" x1="493" y1="215" x2="499" y2="221"/><line class="nc" x1="493" y1="221" x2="499" y2="215"/>
+<line class="p" x1="500" y1="246" x2="540" y2="246"/>
+<text class="pn" x="548" y="250">VN</text>
+<line class="nc" x1="493" y1="243" x2="499" y2="249"/><line class="nc" x1="493" y1="249" x2="499" y2="243"/>
+<line class="p" x1="500" y1="274" x2="540" y2="274"/>
+<text class="pu" x="548" y="278">D34 · ADC1</text>
+<line class="p" x1="500" y1="302" x2="540" y2="302"/>
+<text class="pu" x="548" y="306">D35 · ADC1</text>
+<line class="p" x1="500" y1="330" x2="540" y2="330"/>
+<text class="pn" x="548" y="334">D32</text>
+<line class="nc" x1="493" y1="327" x2="499" y2="333"/><line class="nc" x1="493" y1="333" x2="499" y2="327"/>
+<line class="p" x1="500" y1="358" x2="540" y2="358"/>
+<text class="pn" x="548" y="362">D33</text>
+<line class="nc" x1="493" y1="355" x2="499" y2="361"/><line class="nc" x1="493" y1="361" x2="499" y2="355"/>
+<line class="p" x1="500" y1="386" x2="540" y2="386"/>
+<text class="pn" x="548" y="390">D25</text>
+<line class="nc" x1="493" y1="383" x2="499" y2="389"/><line class="nc" x1="493" y1="389" x2="499" y2="383"/>
+<line class="p" x1="500" y1="414" x2="540" y2="414"/>
+<text class="pn" x="548" y="418">D26</text>
+<line class="nc" x1="493" y1="411" x2="499" y2="417"/><line class="nc" x1="493" y1="417" x2="499" y2="411"/>
+<line class="p" x1="500" y1="442" x2="540" y2="442"/>
+<text class="pn" x="548" y="446">D27</text>
+<line class="nc" x1="493" y1="439" x2="499" y2="445"/><line class="nc" x1="493" y1="445" x2="499" y2="439"/>
+<line class="p" x1="500" y1="470" x2="540" y2="470"/>
+<text class="pn" x="548" y="474">D14</text>
+<line class="nc" x1="493" y1="467" x2="499" y2="473"/><line class="nc" x1="493" y1="473" x2="499" y2="467"/>
+<line class="p" x1="500" y1="498" x2="540" y2="498"/>
+<text class="pn" x="548" y="502">D12</text>
+<line class="nc" x1="493" y1="495" x2="499" y2="501"/><line class="nc" x1="493" y1="501" x2="499" y2="495"/>
+<line class="p" x1="500" y1="526" x2="540" y2="526"/>
+<text class="pn" x="548" y="530">D13</text>
+<line class="nc" x1="493" y1="523" x2="499" y2="529"/><line class="nc" x1="493" y1="529" x2="499" y2="523"/>
+<line class="p" x1="500" y1="554" x2="540" y2="554"/>
+<text class="pn" x="548" y="558">GND</text>
+<line class="nc" x1="493" y1="551" x2="499" y2="557"/><line class="nc" x1="493" y1="557" x2="499" y2="551"/>
+<line class="p" x1="500" y1="582" x2="540" y2="582"/>
+<text class="pn" x="548" y="586">VIN</text>
+<line class="nc" x1="493" y1="579" x2="499" y2="585"/><line class="nc" x1="493" y1="585" x2="499" y2="579"/>
+<line class="p" x1="820" y1="190" x2="860" y2="190"/>
+<text class="pu" x="812" y="194" text-anchor="end">D23</text>
+<line class="p" x1="820" y1="218" x2="860" y2="218"/>
+<text class="pu" x="812" y="222" text-anchor="end">D22 (SCL)</text>
+<line class="p" x1="820" y1="246" x2="860" y2="246"/>
+<text class="pn" x="812" y="250" text-anchor="end">TX0</text>
+<line class="nc" x1="861" y1="243" x2="867" y2="249"/><line class="nc" x1="861" y1="249" x2="867" y2="243"/>
+<line class="p" x1="820" y1="274" x2="860" y2="274"/>
+<text class="pn" x="812" y="278" text-anchor="end">RX0</text>
+<line class="nc" x1="861" y1="271" x2="867" y2="277"/><line class="nc" x1="861" y1="277" x2="867" y2="271"/>
+<line class="p" x1="820" y1="302" x2="860" y2="302"/>
+<text class="pu" x="812" y="306" text-anchor="end">D21 (SDA)</text>
+<line class="p" x1="820" y1="330" x2="860" y2="330"/>
+<text class="pn" x="812" y="334" text-anchor="end">D19</text>
+<line class="nc" x1="861" y1="327" x2="867" y2="333"/><line class="nc" x1="861" y1="333" x2="867" y2="327"/>
+<line class="p" x1="820" y1="358" x2="860" y2="358"/>
+<text class="pn" x="812" y="362" text-anchor="end">D18</text>
+<line class="nc" x1="861" y1="355" x2="867" y2="361"/><line class="nc" x1="861" y1="361" x2="867" y2="355"/>
+<line class="p" x1="820" y1="386" x2="860" y2="386"/>
+<text class="pn" x="812" y="390" text-anchor="end">D5</text>
+<line class="nc" x1="861" y1="383" x2="867" y2="389"/><line class="nc" x1="861" y1="389" x2="867" y2="383"/>
+<line class="p" x1="820" y1="414" x2="860" y2="414"/>
+<text class="pn" x="812" y="418" text-anchor="end">TX2</text>
+<line class="nc" x1="861" y1="411" x2="867" y2="417"/><line class="nc" x1="861" y1="417" x2="867" y2="411"/>
+<line class="p" x1="820" y1="442" x2="860" y2="442"/>
+<text class="pn" x="812" y="446" text-anchor="end">RX2</text>
+<line class="nc" x1="861" y1="439" x2="867" y2="445"/><line class="nc" x1="861" y1="445" x2="867" y2="439"/>
+<line class="p" x1="820" y1="470" x2="860" y2="470"/>
+<text class="pn" x="812" y="474" text-anchor="end">D4</text>
+<line class="nc" x1="861" y1="467" x2="867" y2="473"/><line class="nc" x1="861" y1="473" x2="867" y2="467"/>
+<line class="p" x1="820" y1="498" x2="860" y2="498"/>
+<text class="pn" x="812" y="502" text-anchor="end">D2</text>
+<line class="nc" x1="861" y1="495" x2="867" y2="501"/><line class="nc" x1="861" y1="501" x2="867" y2="495"/>
+<line class="p" x1="820" y1="526" x2="860" y2="526"/>
+<text class="pn" x="812" y="530" text-anchor="end">D15</text>
+<line class="nc" x1="861" y1="523" x2="867" y2="529"/><line class="nc" x1="861" y1="529" x2="867" y2="523"/>
+<line class="p" x1="820" y1="554" x2="860" y2="554"/>
+<text class="pu" x="812" y="558" text-anchor="end">GND</text>
+<line class="p" x1="820" y1="582" x2="860" y2="582"/>
+<text class="pu" x="812" y="586" text-anchor="end">3V3</text>
+<rect class="b" x="150" y="220" width="140" height="104" rx="3"/>
+<text class="ref" x="150" y="212">MIC1</text>
+<text x="158" y="268" font-size="14" font-weight="800" fill="#880000">Ses Sensörü</text>
+<text class="pin" x="158" y="284" style="font-weight:400">MAX4466</text>
+<text class="pin" x="282" y="248" text-anchor="end">VCC</text>
+<text class="pin" x="282" y="278" text-anchor="end">AO</text>
+<text class="pin" x="282" y="308" text-anchor="end">GND</text>
+<path class="w" d="M290,244 H330 V100"/>
+<path class="w" d="M290,274 H500"/>
+<path class="w" d="M290,304 H310 V660"/>
+<path class="w" d="M380,100 V266 a8,8 0 0 1 0,16 V440"/>
+<rect class="b" x="373" y="440" width="14" height="50"/>
+<path d="M338,446 L361,462" stroke="#880000" stroke-width="1.8" fill="none"/><polygon points="363,464 354,462 359,455" fill="#880000"/>
+<path d="M338,460 L361,476" stroke="#880000" stroke-width="1.8" fill="none"/><polygon points="363,478 354,476 359,469" fill="#880000"/>
+<text class="ref" x="396" y="456">LDR1</text><text class="val" x="396" y="472">Fotodirenç</text>
+<path class="w" d="M380,490 V540"/>
+<path class="w" d="M380,520 H470 V302 H500"/>
+<rect class="b" x="373" y="540" width="14" height="44"/>
+<text class="ref" x="396" y="558">R1</text><text class="val" x="396" y="574">10kΩ</text>
+<path class="w" d="M380,584 V660"/>
+<rect class="b" x="980" y="140" width="140" height="90" rx="3"/>
+<text class="ref" x="980" y="132">U2</text>
+<text class="pin" x="988" y="164">VCC</text><text class="pin" x="988" y="194">DATA</text><text class="pin" x="988" y="224">GND</text>
+<text x="1112" y="184" text-anchor="end" font-size="14" font-weight="800" fill="#880000">DHT11</text>
+<text class="pin" x="1112" y="200" text-anchor="end" style="font-weight:400">Sıcaklık / Nem</text>
+<path class="w" d="M980,160 H965 V100"/>
+<path class="w" d="M860,190 H980"/>
+<path class="w" d="M980,220 H965 V250 H1180"/>
+<rect class="b" x="980" y="310" width="160" height="130" rx="3"/>
+<text class="ref" x="980" y="302">LCD1</text>
+<text class="pin" x="988" y="334">VCC</text><text class="pin" x="988" y="364">SCL</text>
+<text class="pin" x="988" y="394">SDA</text><text class="pin" x="988" y="424">GND</text>
+<text x="1132" y="370" text-anchor="end" font-size="14" font-weight="800" fill="#880000">LCD 20x4</text>
+<text class="pin" x="1132" y="388" text-anchor="end" style="font-weight:400">I2C (PCF8574)</text>
+<text class="pin" x="1132" y="404" text-anchor="end" style="font-weight:400">Adres: 0x27</text>
+<path class="w" d="M980,330 H965 V285 H1172 a8,8 0 0 1 16,0 H1220 V100"/>
+<path class="w" d="M860,218 H900 V360 H980"/>
+<path class="w" d="M860,302 H880 V390 H980"/>
+<path class="w" d="M980,420 H965 V450 H1180"/>
+<path class="w" d="M860,554 H1180"/>
+<path class="w" d="M860,582 H1172 a8,8 0 0 1 16,0 H1220 V285"/>
+<path class="w" d="M1180,250 V660"/>
+<g class="j"><circle cx="330" cy="100" r="4"/><circle cx="380" cy="100" r="4"/><circle cx="965" cy="100" r="4"/><circle cx="1220" cy="100" r="4"/><circle cx="1220" cy="285" r="4"/><circle cx="310" cy="660" r="4"/><circle cx="380" cy="660" r="4"/><circle cx="1180" cy="660" r="4"/><circle cx="1180" cy="450" r="4"/><circle cx="1180" cy="554" r="4"/><circle cx="380" cy="520" r="4"/></g>
+<rect x="870" y="782" width="400" height="168" fill="#fff" stroke="#880000" stroke-width="2"/>
+<text x="1070.0" y="804" text-anchor="middle" font-size="10" font-weight="700" fill="#a58a8a" letter-spacing="1">PROJE ADI</text>
+<text x="1070.0" y="832" text-anchor="middle" font-size="13" font-weight="800" fill="#880000">ESP32 ÇEVRE VE GÜRÜLTÜ İZLEME İSTASYONU</text>
+<line x1="870" y1="854" x2="1270" y2="854" stroke="#880000"/>
+<text class="cell" x="882" y="871" style="font-weight:700;fill:#880000">Yazılım</text>
+<text class="cell" x="982" y="871">v2.4</text>
+<line x1="870" y1="878" x2="1270" y2="878" stroke="#880000"/>
+<text class="cell" x="882" y="895" style="font-weight:700;fill:#880000">Tarih</text>
+<text class="cell" x="982" y="895">24.10.2026</text>
+<line x1="870" y1="902" x2="1270" y2="902" stroke="#880000"/>
+<text class="cell" x="882" y="919" style="font-weight:700;fill:#880000">Sayfa</text>
+<text class="cell" x="982" y="919">1 / 1</text>
+<line x1="870" y1="926" x2="1270" y2="926" stroke="#880000"/>
+<text class="cell" x="882" y="943" style="font-weight:700;fill:#880000">Kart</text>
+<text class="cell" x="982" y="943">ESP32 DevKit (30 pin)</text>
+<line x1="970" y1="854" x2="970" y2="950" stroke="#880000"/>
+</svg>
