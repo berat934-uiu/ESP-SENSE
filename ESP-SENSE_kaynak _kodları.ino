@@ -1,19 +1,16 @@
 /*
  * Wifi olmadan da çalışır
  * ============================================================================
- *  ESP32 ÇEVRE İSTASYONU  -  v2.4 (kararlılık düzeltmeleri)
+ *  ESP32 ÇEVRE İSTASYONU  -  v2.5 (State Machine & Güvenlik Entegrasyonu)
  *  Sensörler : DHT11 (sıcaklık/nem), Mikrofon (analog), LDR (Voltaj Bölücü)
  *  Ekran     : 20x4 I2C LCD (0x27)
  *  Arayüz    : Gömülü web paneli (canlı grafik, 4 sensör)
  *
- *  v2.4 değişiklikleri:
- *   - Sensör görevi önceliği web sunucusuyla eşitlendi (öncelik 1), döngü
- *     beklemesi 30 ms: handleClient() artık aç kalmıyor.
- *   - Kalibrasyon sırasında vTaskDelay ile sunucuya nefes aldırılıyor.
- *   - Wi-Fi: persistent(false), autoReconnect, WiFi.reconnect(), olay
- *     yakalayıcı ile kopma sebep kodu seri monitöre yazılıyor.
- *   - HTTP cevaplarında "Connection: close" (takılı soketleri önler).
- *   - Web paneli: fetch zaman aşımı (3 sn), yoklama aralığı 1000 ms.
+ *  v2.5 Değişiklikleri:
+ *   - SystemStatus Enum (SYS_OK, SYS_WARN_DHT, SYS_ERR_LDR) ve State Machine eklendi.
+ *   - LDR için donanım/kablo kopukluk kontrolü (sampleLightChecked) entegre edildi.
+ *   - LCD ekranında ve Web Paneli JSON çıktısında anlık sistem durum bilgisi verildi.
+ *   - Non-blocking mimari ve FreeRTOS görev yapıları korundu.
  * ============================================================================
  */
 
@@ -33,22 +30,22 @@ namespace Config {
   constexpr uint8_t PIN_LDR = 35;   // ADC1 - LDR Sinyal (Voltaj Bölücü)
 
   // Wi-Fi
-  const char* WIFI_SSID = "bip";      //Wifi ağınızın adı
-  const char* WIFI_PASS = "123456788"; //Wifi ağınızın şifresi
+  const char* WIFI_SSID = "bip";       // Wifi ağınızın adı
+  const char* WIFI_PASS = "123456788"; // Wifi ağınızın şifresi
   const char* HOSTNAME  = "cevre";     
   constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
   constexpr uint32_t WIFI_RETRY_INTERVAL_MS  = 15000;
-  const char* AP_SSID = "ESP32-Cevre";   //Esp nin kendi ağı (isterseniz değiştirin adı)
-  const char* AP_PASS = "12345678";      //Esp nin şifresi
+  const char* AP_SSID = "ESP32-Cevre";   // Esp nin kendi ağı
+  const char* AP_PASS = "12345678";      // Esp nin şifresi
 
   // Zamanlama
   constexpr uint32_t DHT_PERIOD_MS     = 2000;
   constexpr uint32_t DISPLAY_PERIOD_MS = 250;
   constexpr uint32_t MIC_WINDOW_MS     = 40;   // RMS örnek penceresi (ms)
-  constexpr uint32_t SENSOR_LOOP_MS    = 30;   // sensör görevi bekleme (web sunucusuna zaman bırakır)
+  constexpr uint32_t SENSOR_LOOP_MS    = 30;   // sensör görevi bekleme
 
   // MIC (RMS) Kalibrasyon / Filtre
-  constexpr int  MIC_RMS_FULLSCALE = 300;
+  constexpr int   MIC_RMS_FULLSCALE = 300;
   constexpr float EMA_LDR          = 0.20f;
   constexpr float EMA_MIC_ATTACK   = 0.70f;
   constexpr float EMA_MIC_RELEASE  = 0.25f;
@@ -61,12 +58,20 @@ namespace Config {
 }
 
 // ============================= ORTAK DURUM ==================================
+enum SystemStatus {
+  SYS_OK,         // Her şey sağlıklı
+  SYS_WARN_DHT,   // DHT11 okunamıyor (sarı durum)
+  SYS_ERR_LDR     // LDR kablosu koptu veya kısa devre (kırmızı durum)
+};
+
 struct SensorData {
-  float    temperature = 0.0f;
-  float    humidity    = 0.0f;
-  bool     dhtOk       = false;
-  float    sound       = 0.0f;
-  float    light       = 0.0f;
+  float        temperature = 0.0f;
+  float        humidity    = 0.0f;
+  bool         dhtOk       = false;
+  bool         ldrOk       = true;
+  float        sound       = 0.0f;
+  float        light       = 0.0f;
+  SystemStatus status      = SYS_OK;
 };
 
 namespace SharedState {
@@ -102,7 +107,12 @@ namespace SensorAgent {
 
   static float micFullScale = (float)Config::MIC_RMS_FULLSCALE;
 
-  // Ham RMS değeri (normalize edilmemiş)
+  struct LdrResult {
+    float percentage;
+    bool isValid;
+  };
+
+  // Ham RMS değeri
   float sampleSoundRMS_raw() {
     const uint32_t window_us = Config::MIC_WINDOW_MS * 1000u;
     const uint32_t start = micros();
@@ -133,7 +143,6 @@ namespace SensorAgent {
     return pct;
   }
 
-  // Kalibrasyon: süre boyunca maksimum RMS'i gözle, scale = max*1.2
   void performCalibration(uint32_t durationMs) {
     Serial.printf("[MIC CALIB] Basliyor %lums\n", (unsigned long)durationMs);
     uint32_t t0 = millis();
@@ -141,21 +150,32 @@ namespace SensorAgent {
     while (millis() - t0 < durationMs) {
       float r = sampleSoundRMS_raw();
       if (r > observedMax) observedMax = r;
-      vTaskDelay(pdMS_TO_TICKS(5));   // web sunucusuna ve Wi-Fi'ye zaman bırak
+      vTaskDelay(pdMS_TO_TICKS(5));
     }
     if (observedMax < 1.0f) observedMax = 1.0f;
     micFullScale = observedMax * 1.2f;
     Serial.printf("[MIC CALIB] tamam. observedMax=%.2f -> micFullScale=%.2f\n", observedMax, micFullScale);
   }
 
-  float sampleLight() {
+  // Güvenlik Kontrollü LDR Okuma (ADC Sınır Testi)
+  LdrResult sampleLightChecked() {
     uint32_t sum = 0;
     for (int i = 0; i < 8; i++) sum += analogRead(Config::PIN_LDR);
     float raw = (float)sum / 8.0f;
-    float pct = (raw / 4095.0f) * 100.0f;
-    if (pct < 0) pct = 0;
-    if (pct > 100) pct = 100;
-    return pct;
+
+    LdrResult res;
+    // 12-bit ADC sınırları: <= 10.0 (Kısa devre / Toprağa çekilme) veya >= 4085.0 (Kablo Kopuk)
+    if (raw <= 10.0f || raw >= 4085.0f) {
+      res.isValid = false;
+      res.percentage = 0.0f;
+    } else {
+      res.isValid = true;
+      float pct = (raw / 4095.0f) * 100.0f;
+      if (pct < 0.0f) pct = 0.0f;
+      if (pct > 100.0f) pct = 100.0f;
+      res.percentage = pct;
+    }
+    return res;
   }
 
   void task(void*) {
@@ -179,10 +199,13 @@ namespace SensorAgent {
       else fSound = rawPct;
       local.sound = fSound;
 
-      // --- LDR (EMA)
-      float rawLight = sampleLight();
-      fLight = (fLight < 0) ? rawLight : fLight + Config::EMA_LDR * (rawLight - fLight);
-      local.light = fLight;
+      // --- LDR (Güvenlik Kontrollü)
+      LdrResult ldrRes = sampleLightChecked();
+      local.ldrOk = ldrRes.isValid;
+      if (ldrRes.isValid) {
+        fLight = (fLight < 0) ? ldrRes.percentage : fLight + Config::EMA_LDR * (ldrRes.percentage - fLight);
+        local.light = fLight;
+      }
 
       // --- DHT11
       if (millis() - lastDht >= Config::DHT_PERIOD_MS) {
@@ -194,8 +217,17 @@ namespace SensorAgent {
           local.humidity    = h;
           local.dhtOk       = true;
         } else {
-          local.dhtOk = false;
+          local.dhtOk       = false;
         }
+      }
+
+      // --- STATE MACHINE (Durum Makinesi Mantığı)
+      if (!local.ldrOk) {
+        local.status = SYS_ERR_LDR;
+      } else if (!local.dhtOk) {
+        local.status = SYS_WARN_DHT;
+      } else {
+        local.status = SYS_OK;
       }
 
       SharedState::write(local);
@@ -230,22 +262,35 @@ namespace DisplayAgent {
   void render(const SensorData& d) {
     char line[32], bar[16];
 
+    // Satır 0: Sıcaklık / Nem
     if (d.dhtOk) snprintf(line, sizeof(line), "SIC:%.1f%cC NEM:%.1f%%", d.temperature, (char)223, d.humidity);
     else         snprintf(line, sizeof(line), "SIC:--.-%cC NEM:--.-%%", (char)223);
     printRow(0, line);
 
+    // Satır 1: Ses
     makeBar(bar, d.sound, 6);
     snprintf(line, sizeof(line), "SES :[%-6s] %4.1f%%", bar, d.sound);
     printRow(1, line);
 
-    makeBar(bar, d.light, 6);
-    snprintf(line, sizeof(line), "ISIK:[%-6s] %4.1f%%", bar, d.light);
+    // Satır 2: Işık (LDR Hata Durumu Kontrolü)
+    if (d.ldrOk) {
+      makeBar(bar, d.light, 6);
+      snprintf(line, sizeof(line), "ISIK:[%-6s] %4.1f%%", bar, d.light);
+    } else {
+      snprintf(line, sizeof(line), "ISIK:[ HATA: KABLO! ]");
+    }
     printRow(2, line);
 
-    // Satır 3: IP veya durum (kopma sebebi varsa göster)
-    if (WiFi.status() == WL_CONNECTED)      snprintf(line, sizeof(line), "IP:%s", WiFi.localIP().toString().c_str());
-    else if (apMode)                        snprintf(line, sizeof(line), "AP:%s R:%d", WiFi.softAPIP().toString().c_str(), (int)lastDisconnectReason);
-    else                                    snprintf(line, sizeof(line), "WiFi OFFLINE R:%d", (int)lastDisconnectReason);
+    // Satır 3: IP veya Kritik Hata Durumu
+    if (d.status == SYS_ERR_LDR) {
+      snprintf(line, sizeof(line), "KRT ERR: LDR PIN 35!");
+    } else if (WiFi.status() == WL_CONNECTED) {
+      snprintf(line, sizeof(line), "IP:%s", WiFi.localIP().toString().c_str());
+    } else if (apMode) {
+      snprintf(line, sizeof(line), "AP:%s R:%d", WiFi.softAPIP().toString().c_str(), (int)lastDisconnectReason);
+    } else {
+      snprintf(line, sizeof(line), "WiFi OFFLINE R:%d", (int)lastDisconnectReason);
+    }
     printRow(3, line);
   }
 
@@ -304,7 +349,7 @@ canvas{width:100%;height:56px;display:block}
 footer{text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
 </style></head><body><div class="app">
 <header>
- <div class="brand"><div class="logo">E</div><div><h1>Çevre İstasyonu</h1><div class="sub">esp32 · telemetri paneli v2.4</div></div></div>
+ <div class="brand"><div class="logo">E</div><div><h1>Çevre İstasyonu</h1><div class="sub">esp32 · telemetri paneli v2.5</div></div></div>
  <div class="badge" id="conn"><span class="dot"></span><span id="connTxt">Bağlanıyor…</span></div>
 </header>
 <section class="grid">
@@ -320,7 +365,7 @@ footer{text-align:center;color:var(--mut);font-size:11px;margin-top:18px}
   <div class="kv"><span>Boş bellek</span><b id="sHeap">-</b></div>
   <div class="kv"><span>Çalışma süresi</span><b id="sUp">-</b></div>
   <div class="kv"><span>Gecikme</span><b id="sLat">-</b></div>
-  <div class="kv"><span>DHT durumu</span><b id="sDht">-</b></div>
+  <div class="kv"><span>Sistem Durumu</span><b id="sDht">-</b></div>
  </div>
  <div class="card panel" style="--c:#22d3ee"><h3>Olay günlüğü</h3><div class="log" id="log"></div></div>
 </section>
@@ -351,16 +396,38 @@ async function tick(){const t0=performance.now();
   set('T',d.temp,d.temp.toFixed(1),d.temp/50*100,0,50);
   set('H',d.hum,d.hum.toFixed(1),d.hum,0,100);
   set('M',d.mic,d.mic.toFixed(1),d.mic,0,100);
-  set('L',d.ldr,d.ldr.toFixed(1),d.ldr,0,100);
+  
+  if(d.ldr_ok) {
+    set('L',d.ldr,d.ldr.toFixed(1),d.ldr,0,100);
+  } else {
+    set('L',0,'ERR',0,0,100);
+  }
+
   $('sIp').textContent=d.ip;$('sRssi').textContent=d.rssi?d.rssi+' dBm':'AP modu';
   $('sHeap').textContent=(d.heap/1024).toFixed(0)+' KB';$('sUp').textContent=up(d.up);
   $('sLat').textContent=Math.round(performance.now()-t0)+' ms';
-  $('sDht').textContent=d.dht?'Sağlıklı':'Okunamıyor';
+  
+  // Sistem durum gösterimi
+  if(d.sys_status === 'SYS_OK') {
+    $('sDht').textContent = 'Sağlıklı';
+    $('sDht').style.color = 'var(--ok)';
+  } else if(d.sys_status === 'SYS_WARN_DHT') {
+    $('sDht').textContent = 'DHT Uyarısı';
+    $('sDht').style.color = 'var(--l)';
+  } else {
+    $('sDht').textContent = 'LDR HATA (PIN 35)';
+    $('sDht').style.color = 'var(--bad)';
+  }
+
   if(d.mic>=70&&Date.now()-lastLoud>5000){lastLoud=Date.now();log('Yüksek ses algılandı (%'+d.mic.toFixed(1)+')','w')}
-  const dark=d.ldr<15;if(lastDark!==null&&dark!==lastDark)log(dark?'Ortam karardı':'Ortam aydınlandı','w');lastDark=dark;
+  if(d.ldr_ok){
+    const dark=d.ldr<15;if(lastDark!==null&&dark!==lastDark)log(dark?'Ortam karardı':'Ortam aydınlandı','w');lastDark=dark;
+  } else if(lastDark !== 'ERR') {
+    log('KRİTİK HATA: LDR Sensör Bağlantısı Koptu!','e'); lastDark = 'ERR';
+  }
  }catch(e){clearTimeout(to);fails++;if(fails>=2)setConn(false)}
  setTimeout(tick,1000)}
-log('Panel başlatıldı v2.4');tick();
+log('Panel başlatıldı v2.5');tick();
 </script></body></html>)HTML";
 
 // ============================ AĞ AJANI ======================================
@@ -376,12 +443,19 @@ namespace NetworkAgent {
     SensorData d = SharedState::read();
     char json[512];
     String ip = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
+    
+    const char* statusStr = "SYS_OK";
+    if (d.status == SYS_ERR_LDR) statusStr = "SYS_ERR_LDR";
+    else if (d.status == SYS_WARN_DHT) statusStr = "SYS_WARN_DHT";
+
     snprintf(json, sizeof(json),
-      "{\"temp\":%.1f,\"hum\":%.1f,\"mic\":%.1f,\"ldr\":%.1f,\"dht\":%s,"
+      "{\"temp\":%.1f,\"hum\":%.1f,\"mic\":%.1f,\"ldr\":%.1f,\"dht\":%s,\"ldr_ok\":%s,\"sys_status\":\"%s\","
       "\"rssi\":%d,\"heap\":%u,\"up\":%lu,\"ip\":\"%s\"}",
-      d.temperature, d.humidity, d.sound, d.light, d.dhtOk ? "true" : "false",
+      d.temperature, d.humidity, d.sound, d.light, 
+      d.dhtOk ? "true" : "false", d.ldrOk ? "true" : "false", statusStr,
       (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : 0,
       (unsigned)ESP.getFreeHeap(), (unsigned long)(millis() / 1000), ip.c_str());
+      
     server.sendHeader("Cache-Control", "no-store");
     server.sendHeader("Connection", "close");
     server.send(200, "application/json", json);
@@ -401,7 +475,6 @@ namespace NetworkAgent {
 
   void handleNotFound() { server.send(404, "text/plain", "404 - Bulunamadi"); }
 
-  // Wi-Fi olayları: kopma sebep kodunu yakala
   void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info) {
     switch (event) {
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
@@ -418,7 +491,7 @@ namespace NetworkAgent {
   }
 
   bool connectStation() {
-    WiFi.persistent(false);          // flash'a sürekli yazma
+    WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(Config::HOSTNAME);
     WiFi.setAutoReconnect(true);
@@ -481,7 +554,6 @@ namespace NetworkAgent {
                     (unsigned)ESP.getFreeHeap());
     }
 
-    // Bağlantı yoksa nazikçe yeniden bağlan (disconnect+begin yerine reconnect)
     static uint32_t lastRetry = 0;
     if (WiFi.status() != WL_CONNECTED && millis() - lastRetry > Config::WIFI_RETRY_INTERVAL_MS) {
       lastRetry = millis();
@@ -494,7 +566,7 @@ namespace NetworkAgent {
 // ============================== BAŞLATMA ====================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n[BOOT] ESP32 Cevre Istasyonu v2.4 (kararlilik duzeltmeleri)");
+  Serial.println("\n[BOOT] ESP32 Cevre Istasyonu v2.5 (State Machine & Guvenlik)");
 
   SharedState::init();
 
@@ -507,7 +579,6 @@ void setup() {
 
   NetworkAgent::begin();
 
-  // Öncelik 1: loop() (web sunucusu) ile eşit, böylece sunucu aç kalmaz
   xTaskCreatePinnedToCore(SensorAgent::task,  "SensorAgent",  4096, nullptr, 1, nullptr, 1);
   xTaskCreatePinnedToCore(DisplayAgent::task, "DisplayAgent", 4096, nullptr, 1, nullptr, 1);
 
